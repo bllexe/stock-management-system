@@ -48,6 +48,23 @@ public class FallbackController {
         response.put("timestamp", LocalDateTime.now());
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
     }
+    
+    @GetMapping("/suppliers")
+    public ResponseEntity<Map<String, Object>> supplierServiceFallback() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "Supplier service is currently unavailable. Please try again later.");
+        response.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+        response.put("timestamp", LocalDateTime.now());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
+    }
 
+    @GetMapping("/customers")
+    public ResponseEntity<Map<String, Object>> customerServiceFallback() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "Customer service is currently unavailable. Please try again later.");
+        response.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+        response.put("timestamp", LocalDateTime.now());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
+    }
 
 }

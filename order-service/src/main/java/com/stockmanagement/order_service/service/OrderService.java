@@ -1,4 +1,21 @@
 package com.stockmanagement.order_service.service;
+
+
+import com.stockmanagement.order_service.client.InventoryClient;
+import com.stockmanagement.order_service.client.ProductClient;
+import com.stockmanagement.order_service.dto.*;
+import com.stockmanagement.order_service.entity.Order;
+import com.stockmanagement.order_service.entity.OrderItem;
+import com.stockmanagement.order_service.entity.OrderStatus;
+import com.stockmanagement.order_service.event.OrderCancelledEvent;
+import com.stockmanagement.order_service.event.OrderConfirmedEvent;
+import com.stockmanagement.order_service.event.OrderCreatedEvent;
+import com.stockmanagement.order_service.event.OrderItemEvent;
+import com.stockmanagement.order_service.exception.InsufficientStockException;
+import com.stockmanagement.order_service.exception.OrderNotFoundException;
+import com.stockmanagement.order_service.exception.ProductNotFoundException;
+import com.stockmanagement.order_service.publisher.OrderEventPublisher;
+import com.stockmanagement.order_service.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -8,16 +25,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
-import com.stockmanagement.order_service.repository.OrderRepository;
-import com.stockmanagement.order_service.client.InventoryClient;
-import com.stockmanagement.order_service.client.ProductClient;
-import com.stockmanagement.order_service.dto.*;
-import com.stockmanagement.order_service.entity.Order;
-import com.stockmanagement.order_service.entity.OrderItem;
-import com.stockmanagement.order_service.entity.OrderStatus;
-import com.stockmanagement.order_service.exception.InsufficientStockException;
-import com.stockmanagement.order_service.exception.OrderNotFoundException;
-import com.stockmanagement.order_service.exception.ProductNotFoundException;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +34,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final ProductClient productClient;
     private final InventoryClient inventoryClient;
+    private final OrderEventPublisher eventPublisher;
     
     @Transactional
     public OrderResponse createOrder(OrderRequest request) {
@@ -86,6 +94,9 @@ public class OrderService {
         
         order.setStatus(OrderStatus.CONFIRMED);
         Order confirmedOrder = orderRepository.save(order);
+        
+        publishOrderCreatedEvent(confirmedOrder);
+        publishOrderConfirmedEvent(confirmedOrder);
         
         log.info("Order created successfully: {}", confirmedOrder.getOrderNumber());
         return mapToResponse(confirmedOrder);
@@ -177,7 +188,55 @@ public class OrderService {
         order.setStatus(OrderStatus.CANCELLED);
         orderRepository.save(order);
         
+        publishOrderCancelledEvent(order);
+        
         log.info("Order cancelled: {}", order.getOrderNumber());
+    }
+    
+    private void publishOrderCreatedEvent(Order order) {
+        List<OrderItemEvent> itemEvents = order.getItems().stream()
+                .map(item -> new OrderItemEvent(
+                        item.getProductId(),
+                        item.getProductName(),
+                        item.getQuantity(),
+                        item.getUnitPrice(),
+                        item.getTotalPrice()
+                ))
+                .collect(Collectors.toList());
+        
+        OrderCreatedEvent event = new OrderCreatedEvent(
+                order.getId(),
+                order.getOrderNumber(),
+                order.getCustomerId(),
+                order.getWarehouseId(),
+                order.getTotalAmount(),
+                itemEvents,
+                order.getCreatedAt()
+        );
+        
+        eventPublisher.publishOrderCreatedEvent(event);
+    }
+    
+    private void publishOrderConfirmedEvent(Order order) {
+        OrderConfirmedEvent event = new OrderConfirmedEvent(
+                order.getId(),
+                order.getOrderNumber(),
+                order.getCustomerId(),
+                LocalDateTime.now()
+        );
+        
+        eventPublisher.publishOrderConfirmedEvent(event);
+    }
+    
+    private void publishOrderCancelledEvent(Order order) {
+        OrderCancelledEvent event = new OrderCancelledEvent(
+                order.getId(),
+                order.getOrderNumber(),
+                order.getCustomerId(),
+                LocalDateTime.now()
+        );
+        
+        eventPublisher.publishOrderCancelledEvent(event);
     }
     
     private String generateOrderNumber() {

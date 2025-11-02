@@ -1,3 +1,4 @@
 config-repo/
 .config-repo
 .vscode/
+.gitignore

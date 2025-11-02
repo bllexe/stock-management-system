@@ -10,6 +10,7 @@
 | **order-service** | Handles order creation and management. | 8083 |
 | **inventory-service** | Tracks stock quantities. | 8082 |
 | **config-repo** | Repository containing configuration files for all services. Store local or github  |
+| **supplier-service** | Manages supplier information (create, update, list). | 8085 |
 
 ---
 
@@ -37,6 +38,7 @@ Services should be started in the following order:
 5. 🛒 **product-service**
 6. 📦 **order-service**
 7. 📊 **inventory-service**
+8. 📦 **supplier-service**
 
 Each service contains its own `application.yml` with configuration and discovery settings.
 
