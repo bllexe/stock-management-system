@@ -14,6 +14,7 @@ import com.stockmanagement.order_service.event.OrderItemEvent;
 import com.stockmanagement.order_service.exception.InsufficientStockException;
 import com.stockmanagement.order_service.exception.OrderNotFoundException;
 import com.stockmanagement.order_service.exception.ProductNotFoundException;
+import com.stockmanagement.order_service.metrics.OrderMetrics;
 import com.stockmanagement.order_service.publisher.OrderEventPublisher;
 import com.stockmanagement.order_service.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,7 @@ public class OrderService {
     private final ProductClient productClient;
     private final InventoryClient inventoryClient;
     private final OrderEventPublisher eventPublisher;
+    private final OrderMetrics orderMetrics;
     
     @Transactional
     public OrderResponse createOrder(OrderRequest request) {
@@ -134,6 +136,7 @@ public class OrderService {
                 );
             } catch (Exception e) {
                 log.error("Failed to release stock during rollback for product: {}", item.getProductId(), e);
+               // orderMetrics.incrementOrderFailed();
             }
         }
     }

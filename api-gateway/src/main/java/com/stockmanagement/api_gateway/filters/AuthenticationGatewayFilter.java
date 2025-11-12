@@ -14,11 +14,11 @@ import reactor.core.publisher.Mono;
 
 @Component
 @Slf4j
-public class AuthenticationGatewayFilterFactory extends AbstractGatewayFilterFactory<AuthenticationGatewayFilterFactory.Config> {
+public class AuthenticationGatewayFilter extends AbstractGatewayFilterFactory<AuthenticationGatewayFilter.Config> {
     
     private final JwtUtil jwtUtil;
     
-    public AuthenticationGatewayFilterFactory(JwtUtil jwtUtil) {
+    public AuthenticationGatewayFilter(JwtUtil jwtUtil) {
         super(Config.class);
         this.jwtUtil = jwtUtil;
     }

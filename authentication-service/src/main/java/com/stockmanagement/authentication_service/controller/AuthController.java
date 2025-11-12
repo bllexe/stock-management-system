@@ -39,11 +39,12 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
     
-    @PostMapping("/logout")
-    public ResponseEntity<String> logout(@AuthenticationPrincipal UserDetailsImpl userDetails) {
-        authService.logout(userDetails.getUsername());
-        return ResponseEntity.ok("Logged out successfully");
-    }
+   @PostMapping("/logout")
+    public ResponseEntity<String> logout(@AuthenticationPrincipal UserDetailsImpl userDetails,@RequestHeader("Authorization") String authHeader) {
+    String token = authHeader.substring(7);
+    authService.logout(userDetails.getUsername(), token);
+    return ResponseEntity.ok("Logged out successfully");
+}
     
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getCurrentUser(@AuthenticationPrincipal UserDetailsImpl userDetails) {
