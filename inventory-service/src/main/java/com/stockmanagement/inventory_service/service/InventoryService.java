@@ -30,6 +30,7 @@ public class InventoryService {
     private final WarehouseRepository warehouseRepository;
     private final ProductClient productClient;
     private final InventoryCacheHelper cacheHelper;
+    //private final Tracer tracer;
     
     @Transactional
     public InventoryResponse createInventory(InventoryRequest request) {

@@ -26,6 +26,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
+import io.micrometer.tracing.Tracer;
 
 @Service
 @RequiredArgsConstructor
@@ -36,7 +37,8 @@ public class OrderService {
     private final ProductClient productClient;
     private final InventoryClient inventoryClient;
     private final OrderEventPublisher eventPublisher;
-    private final OrderMetrics orderMetrics;
+    //private final OrderMetrics orderMetrics;
+    //private final Tracer tracer;
     
     @Transactional
     public OrderResponse createOrder(OrderRequest request) {

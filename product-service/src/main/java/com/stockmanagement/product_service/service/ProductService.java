@@ -5,11 +5,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import java.util.stream.Collectors;
 import com.stockmanagement.product_service.repository.ProductRepository;
-
 import io.micrometer.core.instrument.Timer;
-
 import com.stockmanagement.product_service.cache.ProductCacheHelper;
 import com.stockmanagement.product_service.dto.ProductRequest;
 import com.stockmanagement.product_service.dto.ProductResponse;
@@ -26,52 +26,61 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final ProductCacheHelper cacheHelper;
     private final ProductMetrics metrics; //custom metric for service
+    private final Tracer tracer;
+
     //@Transactional @Cacheput don't use it same method causes conflict
-    
-    @Transactional
+     @Transactional
     public ProductResponse createProduct(ProductRequest request) {
-        if (productRepository.existsBySku(request.getSku())) {
-            throw new ProductAlreadyExistsException("Product with SKU " + request.getSku() + " already exists");
+        Span span = tracer.nextSpan().name("createProduct");
+        try (Tracer.SpanInScope ws = tracer.withSpan(span.start())) {
+            span.tag("product.sku", request.getSku());
+            
+            if (productRepository.existsBySku(request.getSku())) {
+                throw new ProductAlreadyExistsException("Product with SKU " + request.getSku() + " already exists");
+            }
+            
+            Product product = mapToEntity(request);
+            Product savedProduct = productRepository.save(product);
+            ProductResponse response = mapToResponse(savedProduct);
+            
+            cacheHelper.cacheProduct(response);
+            cacheHelper.evictListCaches();
+            
+            span.tag("product.id", String.valueOf(response.getId()));
+            span.event("product.created");
+            
+            return response;
+        } finally {
+            span.end();
         }
-        
-        if (request.getBarcode() != null && productRepository.existsByBarcode(request.getBarcode())) {
-            throw new ProductAlreadyExistsException("Product with barcode " + request.getBarcode() + " already exists");
-        }
-        
-        Product product = mapToEntity(request);
-        Product savedProduct = productRepository.save(product);
-        ProductResponse response = mapToResponse(savedProduct);
-        
-        cacheHelper.cacheProduct(response);
-        cacheHelper.evictListCaches();
-        
-        metrics.incrementProductCreated();
-        
-        return response;
     }
     
-   public ProductResponse getProductById(Long id) {
-        Timer.Sample sample = metrics.startTimer();
-        
-        ProductResponse cached = cacheHelper.getProduct(id);
-        if (cached != null) {
-            log.debug("Product found in cache: {}", id);
-            metrics.incrementCacheHit();  // Cache hit
-            metrics.recordQueryTime(sample);
-            return cached;
+    public ProductResponse getProductById(Long id) {
+        Span span = tracer.nextSpan().name("getProductById");
+        try (Tracer.SpanInScope ws = tracer.withSpan(span.start())) {
+            span.tag("product.id", String.valueOf(id));
+            
+            ProductResponse cached = cacheHelper.getProduct(id);
+            if (cached != null) {
+                log.debug("Product found in cache: {}", id);
+                span.tag("cache", "hit");
+                span.event("cache.hit");
+                return cached;
+            }
+            
+            span.tag("cache", "miss");
+            span.event("cache.miss");
+            
+            Product product = productRepository.findById(id)
+                    .orElseThrow(() -> new ProductNotFoundException("Product not found with id: " + id));
+            
+            ProductResponse response = mapToResponse(product);
+            cacheHelper.cacheProduct(response);
+            
+            return response;
+        } finally {
+            span.end();
         }
-        
-        metrics.incrementCacheMiss();  // Cache miss
-        
-        Product product = productRepository.findById(id)
-                .orElseThrow(() -> new ProductNotFoundException("Product not found with id: " + id));
-        
-        ProductResponse response = mapToResponse(product);
-        cacheHelper.cacheProduct(response);
-        
-        metrics.recordQueryTime(sample);
-        
-        return response;
     }
     
     public ProductResponse getProductBySku(String sku) {

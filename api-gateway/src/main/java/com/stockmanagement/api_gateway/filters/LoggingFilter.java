@@ -14,13 +14,19 @@ public class LoggingFilter implements GlobalFilter, Ordered {
     
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        log.info("Request: {} {}", 
+        String traceId = exchange.getRequest().getHeaders().getFirst("X-B3-TraceId");
+        String spanId = exchange.getRequest().getHeaders().getFirst("X-B3-SpanId");
+        
+        log.info("Request: {} {} [TraceId: {}, SpanId: {}]", 
                 exchange.getRequest().getMethod(), 
-                exchange.getRequest().getURI());
+                exchange.getRequest().getURI(),
+                traceId,
+                spanId);
         
         return chain.filter(exchange).then(Mono.fromRunnable(() -> {
-            log.info("Response Status: {}", 
-                    exchange.getResponse().getStatusCode());
+            log.info("Response Status: {} [TraceId: {}]", 
+                    exchange.getResponse().getStatusCode(),
+                    traceId);
         }));
     }
     

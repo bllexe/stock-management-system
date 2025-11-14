@@ -128,16 +128,16 @@ POST /api/orders
 
 ## PROMETHEUS QUERIES
 
-# CPU Usage 
+## CPU Usage 
 - process_cpu_usage{application="product-service"}
 
-# Memory Usage 
+## Memory Usage 
 - jvm_memory_used_bytes{application="product-service"}
 
-# HTTP Requests 
+## HTTP Requests 
 - http_server_requests_seconds_count{uri="/api/products"}
 
-# Custom metrics
+## Custom metrics
 - product_created_total
 - product_cache_hit_total
 - product_cache_miss_total
@@ -147,12 +147,77 @@ POST /api/orders
 
 ## Health Check Endpoints
 
-# Health check
+## Health check
 - curl http://localhost:8081/actuator/health
 
-# Metrics
+## Metrics
 - curl http://localhost:8081/actuator/metrics
 
-# Prometheus format
+## Prometheus format
 - curl http://localhost:8081/actuator/prometheus
 
+
+## Zipkin
+- http://localhost:9411
+
+## Zipkin Scanario 
+```bash
+- 1. Login (get Token)
+
+POST http://localhost:8080/api/auth/login
+{
+  "username": "admin",
+  "password": "admin123"
+}
+
+-  2. Create Order (trace all services)
+POST http://localhost:8080/api/orders
+Authorization: Bearer {token}
+{
+  "customerId": 1,
+  "warehouseId": 1,
+  "items": [
+    {
+      "productId": 1,
+      "quantity": 2
+    }
+  ]
+}
+```
+
+- 3. Zipkin UI'
+
+1. **Service Dependency Graph** - Which services are calling which services
+2. **Trace Timeline**:
+   - API Gateway → Order Service
+   - Order Service → Product Service (Feign)
+   - Order Service → Inventory Service (Feign)
+   - Inventory Service → Product Service (Feign)
+   - Order Service → RabbitMQ (Event)
+   - Customer Service ← RabbitMQ (Event)
+
+3. **Span Details**:
+   - createOrder span
+   - processOrderItems span
+   - reserveInventory span
+   - acquireLock span
+   - database query span
+   - cache hit/miss events
+
+### Zipkin Query
+
+Zipkin UI:
+- **Service Name**: order-service 
+- **Span Name**: createOrder 
+- **Min Duration**: 100ms (find slow requests)
+- **Tags**: customer.id=1
+
+## 9. Log Output example
+```
+2025-11-03 15:30:45 INFO  [order-service,a1b2c3d4e5f6g7h8,i9j0k1l2m3n4o5p6] Creating order for customer: 1
+2025-11-03 15:30:45 DEBUG [order-service,a1b2c3d4e5f6g7h8,q7r8s9t0u1v2w3x4] Calling product-service for product: 1
+2025-11-03 15:30:45 INFO  [product-service,a1b2c3d4e5f6g7h8,y5z6a7b8c9d0e1f2] Product found in cache: 1
+2025-11-03 15:30:45 DEBUG [order-service,a1b2c3d4e5f6g7h8,g3h4i5j6k7l8m9n0] Calling inventory-service
+2025-11-03 15:30:45 INFO  [inventory-service,a1b2c3d4e5f6g7h8,o1p2q3r4s5t6u7v8] Lock acquired for product: 1
+2025-11-03 15:30:45 INFO  [inventory-service,a1b2c3d4e5f6g7h8,o1p2q3r4s5t6u7v8] Stock reserved: product=1, quantity=2
+2025-11-03 15:30:45 INFO  [order-service,a1b2c3d4e5f6g7h8,i9j0k1l2m3n4o5p6] Order created successfully: ORD-20251103153045
