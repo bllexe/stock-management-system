@@ -1,0 +1,106 @@
+name: CD - Deploy to Kubernetes
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  deploy-to-k8s:
+    name: Deploy to Kubernetes ${{ github.event.inputs.environment || 'production' }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'production' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+      
+      - name: Configure AWS credentials (if using EKS)
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name stock-management-cluster --region us-east-1
+      
+      - name: Deploy ConfigMap
+        run: |
+          kubectl apply -f k8s/configmap.yaml -n stock-management
+      
+      - name: Deploy Infrastructure
+        run: |
+          kubectl apply -f k8s/postgres-deployments.yaml -n stock-management
+          kubectl apply -f k8s/redis-deployment.yaml -n stock-management
+          kubectl apply -f k8s/rabbitmq-deployment.yaml -n stock-management
+      
+      - name: Wait for databases
+        run: |
+          kubectl wait --for=condition=ready pod -l app=postgres-product -n stock-management --timeout=300s
+          kubectl wait --for=condition=ready pod -l app=redis -n stock-management --timeout=300s
+      
+      - name: Deploy Discovery Service
+        run: |
+          kubectl apply -f k8s/discovery-service-deployment.yaml -n stock-management
+          kubectl wait --for=condition=ready pod -l app=discovery-service -n stock-management --timeout=300s
+      
+      - name: Deploy Microservices
+        run: |
+          kubectl apply -f k8s/product-service-deployment.yaml -n stock-management
+          kubectl apply -f k8s/inventory-service-deployment.yaml -n stock-management
+          kubectl apply -f k8s/order-service-deployment.yaml -n stock-management
+          kubectl apply -f k8s/customer-service-deployment.yaml -n stock-management
+          kubectl apply -f k8s/supplier-service-deployment.yaml -n stock-management
+          kubectl apply -f k8s/authentication-service-deployment.yaml -n stock-management
+      
+      - name: Deploy API Gateway
+        run: |
+          kubectl apply -f k8s/api-gateway-deployment.yaml -n stock-management
+      
+      - name: Deploy Monitoring
+        run: |
+          kubectl apply -f k8s/monitoring-deployment.yaml -n stock-management
+      
+      - name: Wait for all pods
+        run: |
+          kubectl wait --for=condition=ready pod --all -n stock-management --timeout=600s
+      
+      - name: Get deployment status
+        run: |
+          kubectl get pods -n stock-management
+          kubectl get svc -n stock-management
+      
+      - name: Run smoke tests
+        run: |
+          GATEWAY_URL=$(kubectl get svc api-gateway -n stock-management -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          curl -f http://${GATEWAY_URL}:8080/actuator/health || exit 1
+      
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          kubectl rollout undo deployment -n stock-management
+      
+      - name: Send deployment notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          # text: 'Deployment to ${{ github.event.inputs.environment || "production" }} ${{ job.status }}!'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        if: always()

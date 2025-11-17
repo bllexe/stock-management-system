@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Generate changelog
+        id: changelog
+        uses: metcalfc/changelog-generator@v4.0.1
+        with:
+          myToken: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            ## Changes in this Release
+            ${{ steps.changelog.outputs.changelog }}
+            
+            ## Docker Images
+            All services are available on Docker Hub:
+            docker pull yourusername/product-service:${{ github.ref_name }}
+            docker pull yourusername/inventory-service:${{ github.ref_name }}
+            docker pull yourusername/order-service:${{ github.ref_name }}
+            docker pull yourusername/customer-service:${{ github.ref_name }}
+            docker pull yourusername/supplier-service:${{ github.ref_name }}
+            docker pull yourusername/authentication-service:${{ github.ref_name }}
+            docker pull yourusername/api-gateway:${{ github.ref_name }}
+            docker pull yourusername/discovery-service:${{ github.ref_name }}
+
+
+          draft: false
+          prerelease: false

@@ -2,3 +2,37 @@ config-repo/
 .config-repo
 .vscode/
 .gitignore
+
+# CI/CD
+.github/workflows/secrets/
+
+# Build artifacts
+**/target/
+**/logs/
+**/*.log
+**/*.pid
+
+# Test reports
+**/surefire-reports/
+**/failsafe-reports/
+**/jacoco/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+```
+
+## Özet - Workflows
+
+1. **ci.yml** - Her push/PR'da build & test
+2. **cd-docker.yml** - Main'e push'ta Docker build & push
+3. **cd-k8s.yml** - Tag push veya manual deploy to K8s
+4. **release.yml** - Tag push'ta GitHub release oluştur
+5. **nightly.yml** - Her gece integration & performance test
+6. **pr-checks.yml** - PR açıldığında code quality & security check
+
+**CI/CD Flow:**
+```
+Developer Push → CI (Build/Test) → PR Checks → Merge to Main 
+  → CD Docker (Build Images) → CD K8s (Deploy) → Release

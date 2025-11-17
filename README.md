@@ -221,3 +221,11 @@ Zipkin UI:
 2025-11-03 15:30:45 INFO  [inventory-service,a1b2c3d4e5f6g7h8,o1p2q3r4s5t6u7v8] Lock acquired for product: 1
 2025-11-03 15:30:45 INFO  [inventory-service,a1b2c3d4e5f6g7h8,o1p2q3r4s5t6u7v8] Stock reserved: product=1, quantity=2
 2025-11-03 15:30:45 INFO  [order-service,a1b2c3d4e5f6g7h8,i9j0k1l2m3n4o5p6] Order created successfully: ORD-20251103153045
+```
+
+## CI/CD 
+# Stock Management System
+
+[![CI](https://github.com/yourusername/stock-management/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/stock-management/actions/workflows/ci.yml)
+[![CD](https://github.com/yourusername/stock-management/actions/workflows/cd-docker.yml/badge.svg)](https://github.com/yourusername/stock-management/actions/workflows/cd-docker.yml)
+[![codecov](https://codecov.io/gh/yourusername/stock-management/branch/main/graph/badge.svg)](https://codecov.io/gh/yourusername/stock-management)
